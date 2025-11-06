@@ -15,8 +15,8 @@ import csv
 from scipy.stats import wasserstein_distance
 from tensorboardX import SummaryWriter
 
-import wandb
-wandb.init(project="ITS")
+#import wandb
+#wandb.init(project="")
 
 
 #============================metrics============================
@@ -452,11 +452,11 @@ def predict_and_save_results(net, data_loader, data_target_tensor, epoch, _max, 
         excel_list.extend([mae, rmse, mape])
         print(excel_list)
 
-        wandb.log({
-            "MAE": mae,
-            "RMSE": rmse,
-            "MAPE": mape
-        })
+        #wandb.log({
+        #    "MAE": mae,
+        #    "RMSE": rmse,
+        #    "MAPE": mape
+        #})
 
 
 def load_graphdata_normY_channel1(graph_signal_matrix_filename, num_of_hours, num_of_days, num_of_weeks, DEVICE, batch_size, shuffle=True, percent=1.0):
@@ -1853,7 +1853,7 @@ def train_main():
             global_step += 1
 
             sw.add_scalar('training_loss', training_loss, global_step)
-            wandb.log({"training_loss": training_loss,"val_loss":val_loss, "epoch": epoch, "step": global_step})
+            #wandb.log({"training_loss": training_loss,"val_loss":val_loss, "epoch": epoch, "step": global_step})
         print('epoch: %s, train time every whole data:%.2fs' % (epoch, time() - train_start_time), flush=True)
         print('epoch: %s, total time:%.2fs' % (epoch, time() - start_time), flush=True)
 
@@ -1940,7 +1940,7 @@ def train_main():
             global_step += 1
 
             sw.add_scalar('training_loss', training_loss, global_step)
-            wandb.log({"training_loss": training_loss,"val_loss":val_loss, "epoch": epoch, "step": global_step})
+            #wandb.log({"training_loss": training_loss,"val_loss":val_loss, "epoch": epoch, "step": global_step})
 
         print('epoch: %s, train time every whole data:%.2fs' % (epoch, time() - train_start_time), flush=True)
         print('epoch: %s, total time:%.2fs' % (epoch, time() - start_time), flush=True)
