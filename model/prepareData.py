@@ -9,17 +9,25 @@ from scipy.stats import wasserstein_distance
 def search_data(sequence_length, num_of_depend, label_start_idx,
                 num_for_predict, units, points_per_hour):
     '''
-    Parameters
+    파라미터
     ----------
-    sequence_length: int, length of all history data
-    num_of_depend: int,
-    label_start_idx: int, the first index of predicting target
-    num_for_predict: int, the number of points will be predicted for each sample
-    units: int, week: 7 * 24, day: 24, recent(hour): 1
-    points_per_hour: int, number of points per hour, depends on data
-    Returns
+    sequence_length: int
+        전체 시계열 길이
+    num_of_depend: int
+        참조(weeks/days/hours) 개수
+    label_start_idx: int
+        예측 대상의 시작 인덱스
+    num_for_predict: int
+        샘플당 예측할 포인트 수
+    units: int
+        단위 길이(week:7*24, day:24, hour:1)
+    points_per_hour: int
+        시간당 데이터 포인트 수
+
+    반환
     ----------
     list[(start_idx, end_idx)]
+        각 참조 구간의 (start_idx, end_idx) 리스트 또는 None
     '''
 
     if points_per_hour < 0:
@@ -46,28 +54,29 @@ def search_data(sequence_length, num_of_depend, label_start_idx,
 def get_sample_indices(data_sequence, num_of_weeks, num_of_days, num_of_hours,
                        label_start_idx, num_for_predict, points_per_hour=12):
     '''
-    Parameters
+    파라미터
     ----------
     data_sequence: np.ndarray
-                   shape is (sequence_length, num_of_vertices, num_of_features)
+        shape = (sequence_length, num_of_vertices, num_of_features)
     num_of_weeks, num_of_days, num_of_hours: int
-    label_start_idx: int, the first index of predicting target, 预测值开始的那个点
-    num_for_predict: int,
-                     the number of points will be predicted for each sample
-    points_per_hour: int, default 12, number of points per hour
-    Returns
+        각각 주/일/시간 참조 개수
+    label_start_idx: int
+        예측 대상의 시작 인덱스
+    num_for_predict: int
+        샘플당 예측할 포인트 수
+    points_per_hour: int
+        시간당 데이터 포인트 수 (기본 12)
+
+    반환
     ----------
     week_sample: np.ndarray
-                 shape is (num_of_weeks * points_per_hour,
-                           num_of_vertices, num_of_features)
+        shape = (num_of_weeks * points_per_hour, num_of_vertices, num_of_features)
     day_sample: np.ndarray
-                 shape is (num_of_days * points_per_hour,
-                           num_of_vertices, num_of_features)
+        shape = (num_of_days * points_per_hour, num_of_vertices, num_of_features)
     hour_sample: np.ndarray
-                 shape is (num_of_hours * points_per_hour,
-                           num_of_vertices, num_of_features)
+        shape = (num_of_hours * points_per_hour, num_of_vertices, num_of_features)
     target: np.ndarray
-            shape is (num_for_predict, num_of_vertices, num_of_features)
+        shape = (num_for_predict, num_of_vertices, num_of_features)
     '''
     week_sample, day_sample, hour_sample = None, None, None
 
@@ -111,14 +120,18 @@ def get_sample_indices(data_sequence, num_of_weeks, num_of_days, num_of_hours,
 
 def MinMaxnormalization(train, val, test):
     '''
-    Parameters
+    Min-Max 정규화 수행
+
+    파라미터
     ----------
-    train, val, test: np.ndarray (B,N,F,T)
-    Returns
+    train, val, test: np.ndarray (B, N, F, T)
+
+    반환
     ----------
-    stats: dict, two keys: mean and std
-    train_norm, val_norm, test_norm: np.ndarray,
-                                     shape is the same as original
+    stats: dict
+        '_max'와 '_min'을 포함
+    train_norm, val_norm, test_norm: np.ndarray
+        정규화된 데이터 (원본과 동일한 shape)
     '''
 
     assert train.shape[1:] == val.shape[1:] and val.shape[1:] == test.shape[1:]  # ensure the num of nodes is the same
@@ -146,20 +159,25 @@ def read_and_generate_dataset_encoder_decoder(graph_signal_matrix_filename,
                                               num_of_hours, num_for_predict,
                                               points_per_hour=12, save=False):
     '''
-    Parameters
-    ----------
-    graph_signal_matrix_filename: str, path of graph signal matrix file
-    num_of_weeks, num_of_days, num_of_hours: int
-    num_for_predict: int
-    points_per_hour: int, default 12, depends on data
+    그래프 시그널(.npz)을 읽어 encoder-decoder용 데이터셋을 생성
 
-    Returns
+    파라미터
     ----------
-    feature: np.ndarray,
-             shape is (num_of_samples, num_of_depend * points_per_hour,
-                       num_of_vertices, num_of_features)
-    target: np.ndarray,
-            shape is (num_of_samples, num_of_vertices, num_for_predict)
+    graph_signal_matrix_filename: str
+        그래프 시그널 파일 경로 (.npz)
+    num_of_weeks, num_of_days, num_of_hours: int
+        각각 주/일/시간 참조 개수
+    num_for_predict: int
+        예측할 포인트 수
+    points_per_hour: int
+        시간당 데이터 포인트 수 (기본 12)
+
+    반환
+    ----------
+    feature: np.ndarray
+        shape = (num_of_samples, num_of_depend * points_per_hour, num_of_vertices, num_of_features)
+    target: np.ndarray
+        shape = (num_of_samples, num_of_vertices, num_for_predict)
     '''
     data_seq = np.load(graph_signal_matrix_filename)['data']  # (sequence_length, num_of_vertices, num_of_features)
 
@@ -172,7 +190,6 @@ def read_and_generate_dataset_encoder_decoder(graph_signal_matrix_filename,
             continue
 
         week_sample, day_sample, hour_sample, target = sample
-
         sample = []  # [(week_sample),(day_sample),(hour_sample),target,time_sample]
 
         if num_of_weeks > 0:
@@ -311,22 +328,7 @@ data['data'].shape
 all_data = read_and_generate_dataset_encoder_decoder(graph_signal_matrix_filename, num_of_weeks, num_of_days, num_of_hours, num_for_predict, points_per_hour=points_per_hour, save=True)
 
 
-def compute_and_save_dep_arr_emd(npz_path, out_csv_path=None, arr_idx=0, dep_idx=1):
-    """
-    Compute Earth Mover's Distance (1D Wasserstein) between each node's dep time series
-    and every other node's arr time series. Save result as a CSV (node x node).
-
-    Parameters
-    ----------
-    npz_path: str
-        Path to the .npz file that contains key 'data' with shape (T, N, F).
-    out_csv_path: str or None
-        Where to save the CSV. If None, saves next to the npz with suffix '_emd_dep_arr.csv'.
-    arr_idx: int
-        Feature index for ARR in the data's last dimension.
-    dep_idx: int
-        Feature index for DEP in the data's last dimension.
-    """
+def compute_and_save_dep_arr_emd(npz_path, out_csv_path=None, arr_idx=0, dep_idx=1, bins=50, sigma_scale=1.0):
 
     print('\ncomputing dep->arr EMD matrix ...')
     data = np.load(npz_path)
@@ -341,20 +343,46 @@ def compute_and_save_dep_arr_emd(npz_path, out_csv_path=None, arr_idx=0, dep_idx
     if arr_idx >= F or dep_idx >= F:
         raise IndexError(f'arr_idx or dep_idx out of range: F={F}, arr_idx={arr_idx}, dep_idx={dep_idx}')
 
-    emd_mat = np.full((N, N), np.nan, dtype=float)
+    # build global soft-histogram bin centers using all dep/arr values
+    vals = np.concatenate([seq[:, :, arr_idx].ravel(), seq[:, :, dep_idx].ravel()])
+    vals = vals[~np.isnan(vals)]
+    if vals.size == 0:
+        vmin, vmax = 0.0, 1.0
+    else:
+        vmin, vmax = float(np.min(vals)), float(np.max(vals))
+        if np.isclose(vmin, vmax):
+            vmax = vmin + 1.0
 
+    centers = np.linspace(vmin, vmax, bins)
+    bin_width = centers[1] - centers[0] if bins > 1 else 1.0
+    sigma = max(1e-8, bin_width * float(sigma_scale))
+
+    def _soft_hist_np(x, centers, sigma):
+        x = np.asarray(x).ravel()
+        if x.size == 0:
+            h = np.ones(len(centers), dtype=float) / len(centers)
+            return h
+        dif = x[:, None] - centers[None, :]
+        w = np.exp(-0.5 * (dif / sigma) ** 2)
+        h = w.sum(axis=0)
+        s = h.sum()
+        if s <= 0:
+            return np.ones_like(h, dtype=float) / h.size
+        return h / s
+
+    emd_mat = np.full((N, N), np.nan, dtype=float)
     for i in range(N):
         dep_series = seq[:, i, dep_idx]
         for j in range(N):
             if i == j:
-                # skip self-comparison (per requirement)
                 continue
             arr_series = seq[:, j, arr_idx]
-            # compute 1D EMD (Wasserstein distance)
             try:
-                emd_val = float(wasserstein_distance(dep_series, arr_series))
+                hist_dep = _soft_hist_np(dep_series, centers, sigma)
+                hist_arr = _soft_hist_np(arr_series, centers, sigma)
+                emd_val = float(wasserstein_distance(centers, centers, u_weights=hist_dep, v_weights=hist_arr))
             except Exception as e:
-                print(f'warning: failed to compute EMD for i={i}, j={j}: {e}')
+                print(f'warning: failed to compute soft-EMD for i={i}, j={j}: {e}')
                 emd_val = np.nan
             emd_mat[i, j] = emd_val
 
