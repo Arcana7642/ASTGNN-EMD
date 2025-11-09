@@ -381,82 +381,82 @@ def predict_and_save_results(net, data_loader, data_target_tensor, epoch, _max, 
 
     input = []  # 모든 배치의 입력을 저장합니다
 
-        start_time = time()
+    start_time = time()
 
-        for batch_index, batch_data in enumerate(data_loader):
+    for batch_index, batch_data in enumerate(data_loader):
 
-            encoder_inputs, decoder_inputs, labels = batch_data
+        encoder_inputs, decoder_inputs, labels = batch_data
 
-            encoder_inputs = encoder_inputs.transpose(-1, -2)  # (B, N, T, F)
+        encoder_inputs = encoder_inputs.transpose(-1, -2)  # (B, N, T, F)
 
-            decoder_inputs = decoder_inputs.unsqueeze(-1)  # (B, N, T, 1)
+        decoder_inputs = decoder_inputs.unsqueeze(-1)  # (B, N, T, 1)
 
-            labels = labels.unsqueeze(-1)  # (B, N, T, 1)
+        labels = labels.unsqueeze(-1)  # (B, N, T, 1)
 
-            predict_length = labels.shape[2]  # T
+        predict_length = labels.shape[2]  # T
 
-            # encode
-            encoder_output = net.encode(encoder_inputs)
-            input.append(encoder_inputs[:, :, :, 0:1].cpu().numpy())  # (batch, T', 1)
+        # encode
+        encoder_output = net.encode(encoder_inputs)
+        input.append(encoder_inputs[:, :, :, 0:1].cpu().numpy())  # (batch, T', 1)
 
-            # decode
-            decoder_start_inputs = decoder_inputs[:, :, :1, :]  # 입력의 첫 번째 값만 decoder의 초기 입력으로 사용하고 이후에는 예측된 값을 입력으로 사용합니다
-            decoder_input_list = [decoder_start_inputs]
+        # decode
+        decoder_start_inputs = decoder_inputs[:, :, :1, :]  # 입력의 첫 번째 값만 decoder의 초기 입력으로 사용하고 이후에는 예측된 값을 입력으로 사용합니다
+        decoder_input_list = [decoder_start_inputs]
 
-            # 시간 단계(time step)별로 예측을 수행합니다
-            for step in range(predict_length):
-                decoder_inputs = torch.cat(decoder_input_list, dim=2)
-                predict_output = net.decode(decoder_inputs, encoder_output)
-                decoder_input_list = [decoder_start_inputs, predict_output]
+        # 시간 단계(time step)별로 예측을 수행합니다
+        for step in range(predict_length):
+            decoder_inputs = torch.cat(decoder_input_list, dim=2)
+            predict_output = net.decode(decoder_inputs, encoder_output)
+            decoder_input_list = [decoder_start_inputs, predict_output]
 
-            prediction.append(predict_output.detach().cpu().numpy())
-            if batch_index % 100 == 0:
-                print('predicting testing set batch %s / %s, time: %.2fs' % (batch_index + 1, loader_length, time() - start_time))
+        prediction.append(predict_output.detach().cpu().numpy())
+        if batch_index % 100 == 0:
+            print('predicting testing set batch %s / %s, time: %.2fs' % (batch_index + 1, loader_length, time() - start_time))
 
-        print('test time on whole data:%.2fs' % (time() - start_time))
-        input = np.concatenate(input, 0)
-        input = re_max_min_normalization(input, _max[0, 0, 0, 0], _min[0, 0, 0, 0])
+    print('test time on whole data:%.2fs' % (time() - start_time))
+    input = np.concatenate(input, 0)
+    input = re_max_min_normalization(input, _max[0, 0, 0, 0], _min[0, 0, 0, 0])
 
-        prediction = np.concatenate(prediction, 0)  # (batch, N, T', 1)
-        prediction = re_max_min_normalization(prediction, _max[0, 0, 0, 0], _min[0, 0, 0, 0])
-        data_target_tensor = re_max_min_normalization(data_target_tensor, _max[0, 0, 0, 0], _min[0, 0, 0, 0])
+    prediction = np.concatenate(prediction, 0)  # (batch, N, T', 1)
+    prediction = re_max_min_normalization(prediction, _max[0, 0, 0, 0], _min[0, 0, 0, 0])
+    data_target_tensor = re_max_min_normalization(data_target_tensor, _max[0, 0, 0, 0], _min[0, 0, 0, 0])
 
-        print('input:', input.shape)
-        print('prediction:', prediction.shape)
-        print('data_target_tensor:', data_target_tensor.shape)
-        output_filename = os.path.join(params_path, 'output_epoch_%s_%s' % (epoch, type))
-        np.savez(output_filename, input=input, prediction=prediction, data_target_tensor=data_target_tensor)
+    print('input:', input.shape)
+    print('prediction:', prediction.shape)
+    print('data_target_tensor:', data_target_tensor.shape)
+    output_filename = os.path.join(params_path, 'output_epoch_%s_%s' % (epoch, type))
+    np.savez(output_filename, input=input, prediction=prediction, data_target_tensor=data_target_tensor)
 
-    # 오차(손실)를 계산합니다
-        excel_list = []
-        prediction_length = prediction.shape[2]
+# 오차(손실)를 계산합니다
+    excel_list = []
+    prediction_length = prediction.shape[2]
 
-        for i in range(prediction_length):
-            assert data_target_tensor.shape[0] == prediction.shape[0]
-            print('current epoch: %s, predict %s points' % (epoch, i))
-            mae = mean_absolute_error(data_target_tensor[:, :, i], prediction[:, :, i, 0])
-            rmse = mean_squared_error(data_target_tensor[:, :, i], prediction[:, :, i, 0]) ** 0.5
-            mape = masked_mape_np(data_target_tensor[:, :, i], prediction[:, :, i, 0], 0)
-            print('MAE: %.2f' % (mae))
-            print('RMSE: %.2f' % (rmse))
-            print('MAPE: %.2f' % (mape))
-            excel_list.extend([mae, rmse, mape])
-
-        # print overall results
-        mae = mean_absolute_error(data_target_tensor.reshape(-1, 1), prediction.reshape(-1, 1))
-        rmse = mean_squared_error(data_target_tensor.reshape(-1, 1), prediction.reshape(-1, 1)) ** 0.5
-        mape = masked_mape_np(data_target_tensor.reshape(-1, 1), prediction.reshape(-1, 1), 0)
-        print('all MAE: %.2f' % (mae))
-        print('all RMSE: %.2f' % (rmse))
-        print('all MAPE: %.2f' % (mape))
+    for i in range(prediction_length):
+        assert data_target_tensor.shape[0] == prediction.shape[0]
+        print('current epoch: %s, predict %s points' % (epoch, i))
+        mae = mean_absolute_error(data_target_tensor[:, :, i], prediction[:, :, i, 0])
+        rmse = mean_squared_error(data_target_tensor[:, :, i], prediction[:, :, i, 0]) ** 0.5
+        mape = masked_mape_np(data_target_tensor[:, :, i], prediction[:, :, i, 0], 0)
+        print('MAE: %.2f' % (mae))
+        print('RMSE: %.2f' % (rmse))
+        print('MAPE: %.2f' % (mape))
         excel_list.extend([mae, rmse, mape])
-        print(excel_list)
 
-        #wandb.log({
-        #    "MAE": mae,
-        #    "RMSE": rmse,
-        #    "MAPE": mape
-        #})
+    # print overall results
+    mae = mean_absolute_error(data_target_tensor.reshape(-1, 1), prediction.reshape(-1, 1))
+    rmse = mean_squared_error(data_target_tensor.reshape(-1, 1), prediction.reshape(-1, 1)) ** 0.5
+    mape = masked_mape_np(data_target_tensor.reshape(-1, 1), prediction.reshape(-1, 1), 0)
+    print('all MAE: %.2f' % (mae))
+    print('all RMSE: %.2f' % (rmse))
+    print('all MAPE: %.2f' % (mape))
+    excel_list.extend([mae, rmse, mape])
+    print(excel_list)
+
+    #wandb.log({
+    #    "MAE": mae,
+    #    "RMSE": rmse,
+    #    "MAPE": mape
+    #})
 
 
 def load_graphdata_normY_channel1(graph_signal_matrix_filename, num_of_hours, num_of_days, num_of_weeks, DEVICE, batch_size, shuffle=True, percent=1.0):
@@ -1827,7 +1827,7 @@ def train_main():
                             # dep: from encoder_inputs, arr: from outputs
                             dep_ts = encoder_inputs[:, ii, :, emd_dep_idx].contiguous().view(-1)
                             arr_pred_ts = outputs[:, jj, :, 0].contiguous().view(-1)
-                            hist_dep = _soft_hist_torch(dep_ts, hist_centers, hist_sigma)
+                            hist_dep = _soft_hist_torch(dep_ts, hist_centers, hist_sigma) #소프트 가우시안
                             hist_arr = _soft_hist_torch(arr_pred_ts, hist_centers, hist_sigma)
                             dist = torch.norm(hist_dep - hist_arr, p=2)
                             tgt = float(emd_target_norm[ii, jj])
